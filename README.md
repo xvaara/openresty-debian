@@ -13,7 +13,6 @@ Builds a deb package for OpenResty 1.11.2.1
 ## Usage
 
 Run ```./build``` from the project root. When it completes you'll have a deb in ```./artifacts```.
-Note that you'll need to have a functional docker installation.
 
 ## Changelog by @nullivex
 * Port Dockerfile to traditional bash script as an alternate to Dockerfile build.

@@ -160,3 +160,11 @@ fpm -s dir -t deb \
   --before-remove $BUILDIR/nginx-scripts/preremove \
   etc run usr var
 
+mkdir $OURDIR/artifacts
+cp $BUILDROOT/*.deb $OURDIR/artifacts
+rm -rf $WORKDIR
+
+echo "$OURDIR/artifacts"
+ls -l $OURDIR/artifacts
+
+echo "Debian build complete"
