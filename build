@@ -1,65 +1,13 @@
 #!/bin/bash
 
-NGXLUAVERSION="0.10.6"
-OPENRESTYVERSION="1.11.2.1"
-OPENSSLVERSION="1.0.2h"
-PCREVERSION="8.39"
-ZLIBVERSION="1.2.8"
-LUAJITVERSION="2.1.0-beta2"
-LUAROCKSVERSION="2.4.1"
+source get-sources
 
-echo "Openresty Debian Builder 0.1.0"
-echo "--------"
-echo "Nginx Lua Version: ${NGXLUAVERSION}"
-echo "Openresty Version: ${OPENRESTYVERSION}"
-echo "OpenSSL Version: ${OPENSSLVERSION}"
-echo "PCRE Version: ${PCREVERSION}"
-echo "ZLIB Version: ${ZLIBVERSION}"
-echo "Lua JIT Version: ${LUAJITVERSION}"
-echo "Lua Rocks Version: ${LUAROCKSVERSION}"
-echo "--------"
-read -p "Update system for build, this is meant for a dev system, continue? (y/n)" -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  [[ "$0" = "$BASH_SOURCE" ]] && exit 1 || return 1 # handle exits
-fi
-
-apt-get -y update
-apt-get -y install wget unzip build-essential ruby-dev libreadline6-dev libncurses5-dev perl rubygems
-gem install fpm
-
-# save versions to save on effort
-# setup the workdir
-echo "Setting up working dir..."
-OURDIR="/opt/openresty-debian"
-WORKDIR="/tmp/openresty-debian-build"
-BUILDIR="$WORKDIR/build"
-BUILDROOT="$BUILDIR/root"
-
-rm -rf $BUILDIR
+rm -rf $BUILDROOT
 mkdir -p $BUILDROOT
-cd $BUILDIR
-
-echo "Downloading packages..."
-wget -O openresty-${OPENRESTYVERSION}.tar.gz https://openresty.org/download/openresty-${OPENRESTYVERSION}.tar.gz
-tar xfz openresty-${OPENRESTYVERSION}.tar.gz
-
-wget -O openssl-${OPENSSLVERSION}.tar.gz https://www.openssl.org/source/openssl-${OPENSSLVERSION}.tar.gz
-tar xfz openssl-${OPENSSLVERSION}.tar.gz
-
-wget -O "pcre-${PCREVERSION}.tar.gz" "http://downloads.sourceforge.net/project/pcre/pcre/${PCREVERSION}/pcre-${PCREVERSION}.tar.gz?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fpcre%2Ffiles%2Fpcre%2F${PCREVERSION}%2F&ts=1478753230&use_mirror=pilotfiber"
-tar xfz pcre-${PCREVERSION}.tar.gz
-
-wget -O zlib-${ZLIBVERSION}.tar.gz http://zlib.net/zlib-${ZLIBVERSION}.tar.gz
-tar xfz zlib-${ZLIBVERSION}.tar.gz
-
-wget -O LuaJIT-${LUAJITVERSION}.tar.gz http://luajit.org/download/LuaJIT-${LUAJITVERSION}.tar.gz
-tar xfz LuaJIT-${LUAJITVERSION}.tar.gz
-
-wget -O luarocks-${LUAROCKSVERSION}.tar.gz https://keplerproject.github.io/luarocks/releases/luarocks-${LUAROCKSVERSION}.tar.gz
-tar xfz luarocks-${LUAROCKSVERSION}.tar.gz
 
 # Compile and install openresty
+# look at https://github.com/openresty/openresty-packaging/blob/master/rpm/SPECS/openresty.spec
+
 echo "Compiling openresty..."
 cd $BUILDIR/openresty-${OPENRESTYVERSION}
 ./configure \

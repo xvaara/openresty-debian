@@ -1,0 +1,76 @@
+#!/bin/bash
+
+NGXLUAVERSION=$(curl -s https://github.com/openresty/lua-nginx-module/releases |grep -m 1 -oP "tag-name\"\>v\K\d+.\d+.\d+")
+OPENRESTYVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty.spec | grep Version: | awk '{print $2}')
+OPENSSLVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-openssl.spec |grep Version: | awk '{print $2}')
+PCREVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-pcre.spec |grep Version: | awk '{print $2}')
+ZLIBVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-zlib.spec |grep Version: | awk '{print $2}')
+LUAJITVERSION="2.1.0-beta2"
+LUAROCKSVERSION=$(curl -s https://github.com/luarocks/luarocks/releases |grep -m 1 -oP "tag-name\"\>v\K\d+.\d+.\d+")
+
+
+#echo "Setting up working dir..."
+OURDIR=$( pwd )
+BUILDIR="$OURDIR/builddir"
+BUILDROOT="$BUILDIR/root"
+
+echo "Openresty Debian Builder 0.1.0"
+echo "--------"
+echo "Nginx Lua Version: ${NGXLUAVERSION}"
+echo "Openresty Version: ${OPENRESTYVERSION}"
+echo "OpenSSL Version: ${OPENSSLVERSION}"
+echo "PCRE Version: ${PCREVERSION}"
+echo "ZLIB Version: ${ZLIBVERSION}"
+echo "Lua JIT Version: ${LUAJITVERSION}"
+echo "Lua Rocks Version: ${LUAROCKSVERSION}"
+echo "--------"
+echo "builddir: $BUILDIR"
+ls $BUILDIR
+read -p "Remove downloaded sources? (y/n)" -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  rm -rf $BUILDIR
+fi
+if ! [ -x "$(command -v fpm)" ]; then
+  apt-get -y update
+  apt-get -y install wget unzip build-essential ruby-dev libreadline6-dev libncurses5-dev perl rubygems systemtap-sdt-dev
+  gem install fpm
+fi
+
+# save versions to save on effort
+# setup the workdir
+
+
+#rm -rf $BUILDIR
+mkdir -p $BUILDROOT
+cd $BUILDIR
+
+echo "Downloading packages..."
+if [ ! -d openresty-${OPENRESTYVERSION} ]; then
+  wget -O openresty-${OPENRESTYVERSION}.tar.gz https://openresty.org/download/openresty-${OPENRESTYVERSION}.tar.gz
+  tar xfz openresty-${OPENRESTYVERSION}.tar.gz
+fi
+if [ ! -d openssl-${OPENSSLVERSION} ]; then
+  wget -O openssl-${OPENSSLVERSION}.tar.gz https://www.openssl.org/source/openssl-${OPENSSLVERSION}.tar.gz
+  tar xfz openssl-${OPENSSLVERSION}.tar.gz
+
+  cd openssl-${OPENSSLVERSION}
+  curl https://raw.githubusercontent.com/openresty/openresty/master/patches/openssl-1.0.2h-sess_set_get_cb_yield.patch |patch -p1
+  cd ..
+fi
+if [ ! -d pcre-${PCREVERSION} ]; then
+  wget -O "pcre-${PCREVERSION}.tar.gz" "http://downloads.sourceforge.net/project/pcre/pcre/${PCREVERSION}/pcre-${PCREVERSION}.tar.gz?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fpcre%2Ffiles%2Fpcre%2F${PCREVERSION}%2F&ts=1478753230&use_mirror=pilotfiber"
+  tar xfz pcre-${PCREVERSION}.tar.gz
+fi
+if [ ! -d zlib-${ZLIBVERSION} ]; then
+  wget -O zlib-${ZLIBVERSION}.tar.gz http://zlib.net/zlib-${ZLIBVERSION}.tar.gz
+  tar xfz zlib-${ZLIBVERSION}.tar.gz
+fi
+if [ ! -d LuaJIT-${LUAJITVERSION} ]; then
+  wget -O LuaJIT-${LUAJITVERSION}.tar.gz http://luajit.org/download/LuaJIT-${LUAJITVERSION}.tar.gz
+  tar xfz LuaJIT-${LUAJITVERSION}.tar.gz
+fi
+if [ ! -d luarocks-${LUAROCKSVERSION} ]; then
+  wget -O luarocks-${LUAROCKSVERSION}.tar.gz https://keplerproject.github.io/luarocks/releases/luarocks-${LUAROCKSVERSION}.tar.gz
+  tar xfz luarocks-${LUAROCKSVERSION}.tar.gz
+fi

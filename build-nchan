@@ -2,6 +2,8 @@
 
 source get-sources
 
+git clone https://github.com/slact/nchan.git
+
 rm -rf $BUILDROOT
 mkdir -p $BUILDROOT
 
@@ -11,6 +13,7 @@ mkdir -p $BUILDROOT
 echo "Compiling openresty..."
 cd $BUILDIR/openresty-${OPENRESTYVERSION}
 ./configure \
+  --add-module=../nchan \
   --with-file-aio \
   --with-threads \
   --with-ipv6 \
