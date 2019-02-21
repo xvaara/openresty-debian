@@ -1,13 +1,15 @@
 #!/bin/bash
 
-NGXLUAVERSION=$(curl -s https://github.com/openresty/lua-nginx-module/releases |grep -m 1 -oP "tag-name\"\>v\K\d+.\d+.\d+")
-OPENRESTYVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty.spec | grep Version: | awk '{print $2}')
-OPENSSLVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-openssl.spec |grep Version: | awk '{print $2}')
-PCREVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-pcre.spec |grep Version: | awk '{print $2}')
-ZLIBVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-zlib.spec |grep Version: | awk '{print $2}')
-LUAJITVERSION="2.1.0-beta2"
-LUAROCKSVERSION=$(curl -s https://github.com/luarocks/luarocks/releases |grep -m 1 -oP "tag-name\"\>v\K\d+.\d+.\d+")
-
+echo -n "Getting versions"
+echo -n ".";NGXLUAVERSION=$(curl -s https://github.com/openresty/lua-nginx-module/releases |grep -v rc |grep -m 1 -oP "releases\/tag\/v\K\d+.\d+.\d+")
+echo -n ".";OPENRESTYVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty.spec | grep Version: | awk '{print $2}')
+echo -n ".";OPENSSLVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-openssl.spec |grep Version: | awk '{print $2}')
+echo -n ".";OPENSSLPATCH=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-openssl.spec |grep Patch0: | awk '{print $2}')
+echo -n ".";PCREVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-pcre.spec |grep Version: | awk '{print $2}')
+echo -n ".";ZLIBVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-zlib.spec |grep Version: | awk '{print $2}')
+echo -n ".";LUAJITVERSION=$(curl -s https://github.com/LuaJIT/LuaJIT/releases |grep "2.1" |grep -m 1 -oP "releases\/tag\/v\K\d+.\d+.\d+-\w+")
+echo -n ".";LUAROCKSVERSION=$(curl -s https://github.com/luarocks/luarocks/releases |grep -m 1 -oP "releases\/tag\/v\K\d+.\d+.\d+")
+echo "done"
 
 #echo "Setting up working dir..."
 OURDIR=$( pwd )
@@ -55,7 +57,7 @@ if [ ! -d openssl-${OPENSSLVERSION} ]; then
   tar xfz openssl-${OPENSSLVERSION}.tar.gz
 
   cd openssl-${OPENSSLVERSION}
-  curl https://raw.githubusercontent.com/openresty/openresty/master/patches/openssl-1.0.2h-sess_set_get_cb_yield.patch |patch -p1
+  curl ${OPENSSLPATCH} |patch -p1
   cd ..
 fi
 if [ ! -d pcre-${PCREVERSION} ]; then
@@ -71,6 +73,33 @@ if [ ! -d LuaJIT-${LUAJITVERSION} ]; then
   tar xfz LuaJIT-${LUAJITVERSION}.tar.gz
 fi
 if [ ! -d luarocks-${LUAROCKSVERSION} ]; then
-  wget -O luarocks-${LUAROCKSVERSION}.tar.gz https://keplerproject.github.io/luarocks/releases/luarocks-${LUAROCKSVERSION}.tar.gz
+  wget -O luarocks-${LUAROCKSVERSION}.tar.gz https://github.com/luarocks/luarocks/archive/v${LUAROCKSVERSION}.tar.gz
   tar xfz luarocks-${LUAROCKSVERSION}.tar.gz
 fi
+
+if [ ! -d nchan ]; then
+  git clone https://github.com/slact/nchan.git
+fi
+cd nchan
+# Get new tags from the remote
+git fetch --tags
+# Get the latest tag name
+latestTag=$(git describe --tags `git rev-list --tags --max-count=1`)
+# Checkout the latest tag
+git checkout $latestTag
+cd ..
+
+
+if [ ! -d ngx_brotli ]; then
+  git clone https://github.com/eustas/ngx_brotli.git
+  cd ngx_brotli
+  git submodule update --init --recursive
+  cd ..
+else
+  cd ngx_brotli
+  git pull
+  git submodule update --init --recursive
+  cd ..
+fi
+
+

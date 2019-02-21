@@ -1,5 +1,71 @@
 #!/bin/bash
 
+#git clone https://github.com/slact/nchan.git
+MODULES=''
+DEBVAR='none'
+RESTYOLD=''
+
+if [ $(dpkg-query -W -f='${Package}\n' "openresty*" 2>/dev/null | wc -l) -ne 0 ]; then
+  RESTY=$(dpkg-query -W -f='${Package},${Status}\n' "openresty*" | grep -oP '.*(?=,install ok installed)' 2>/dev/null)
+  read -p "$RESTY found, use same build? (y/n)" -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    DEBVAR="-${RESTY:10}"
+  else
+    echo "REMEMBER TO REMOVE THE $RESTY version before installing this one!"
+    RESTYOLD="  --replaces $RESTY \
+  --provides $RESTY \
+  --conflicts $RESTY \
+  "
+  fi
+fi
+
+echo "Going with $DEBVAR"
+
+if [[ $DEBVAR == 'none' ]]; then
+  DEBVAR=''
+  read -p "Build with extras? (y/n)" -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    DEBVAR="$DEBVAR-extras"
+  fi
+
+  read -p "Build with nchan? (y/n)" -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    DEBVAR="$DEBVAR-nchan"
+  fi
+
+  read -p "Build with brotli? (y/n)" -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    DEBVAR="$DEBVAR-brotli"
+  fi
+fi
+
+if [[ $DEBVAR = *'extras'* ]]; then
+
+  MODULES="  --with-http_addition_module \
+  --with-http_auth_request_module \
+  --with-http_dav_module \
+  --with-http_flv_module \
+  --with-http_gunzip_module \
+  --with-http_mp4_module \
+  --with-http_random_index_module \
+  --with-http_realip_module \
+  --with-http_secure_link_module \
+  --with-http_slice_module \
+  --with-http_sub_module \
+  "
+fi
+if [[ $DEBVAR = *'nchan'* ]]; then
+  MODULES="$MODULES   --add-module=../nchan"
+fi
+if [[ $DEBVAR = *'brotli'* ]]; then
+  MODULES="$MODULES   --add-module=../ngx_brotli"
+fi
+
+echo "Building variant $DEBVAR"
 source get-sources
 
 rm -rf $BUILDROOT
@@ -11,18 +77,35 @@ mkdir -p $BUILDROOT
 echo "Compiling openresty..."
 cd $BUILDIR/openresty-${OPENRESTYVERSION}
 ./configure \
+  $MODULES \
+  --with-file-aio \
+  --with-threads \
+  --with-ipv6 \
+  --without-http_rds_json_module \
+  --without-http_rds_csv_module \
+  --without-lua_rds_parser \
+  --with-stream \
+  --with-stream_ssl_module \
+  --with-stream_ssl_preread_module \
+  --with-http_v2_module \
+  --without-mail_pop3_module \
+  --without-mail_imap_module \
+  --without-mail_smtp_module \
   --with-http_ssl_module \
   --with-http_stub_status_module \
   --with-http_gzip_static_module \
+  --with-luajit-xcflags='-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT' \
+  --with-dtrace-probes \
   --with-debug \
   --with-openssl=$BUILDIR/openssl-${OPENSSLVERSION} \
   --with-pcre=$BUILDIR/pcre-${PCREVERSION} \
   --with-pcre-jit \
   --with-zlib=$BUILDIR/zlib-${ZLIBVERSION} \
-  --with-cc-opt='-O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2' \
+  --with-cc-opt='-O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -DNGX_LUA_ABORT_AT_PANIC ' \
   --with-ld-opt='-Wl,-Bsymbolic-functions -Wl,-z,relro' \
   --prefix=/usr/share/nginx \
   --sbin-path=/usr/sbin/nginx \
+  --modules-path=/usr/lib/nginx/modules \
   --conf-path=/etc/nginx/nginx.conf \
   --http-log-path=/var/log/nginx/access.log \
   --error-log-path=/var/log/nginx/error.log \
@@ -35,7 +118,7 @@ cd $BUILDIR/openresty-${OPENRESTYVERSION}
   --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
   --user=www-data \
   --group=www-data
-make -j${nproc}
+make -j$(nproc)
 make install DESTDIR=$BUILDROOT
 
 # Compile LuaRocks
@@ -46,10 +129,7 @@ cd $BUILDIR/luarocks-${LUAROCKSVERSION}
 ./configure \
   --prefix=$BUILDIR/usr/share/nginx/luajit \
   --with-lua=$BUILDIR/usr/share/nginx/luajit \
-  --lua-suffix=jit-${LUAJITVERSION} \
-  --with-lua-include=$BUILDROOT/usr/share/nginx/luajit/include/luajit-2.1 \
-  --with-downloader=wget \
-  --with-md5-checker=openssl
+  --with-lua-include=$BUILDROOT/usr/share/nginx/luajit/include/luajit-2.1
 make build
 make install DESTDIR=$BUILDROOT
 rm -rf $BUILDIR/usr/share/nginx
@@ -79,18 +159,22 @@ cp $BUILDIR/nginx-conf/logrotate etc/logrotate.d/nginx
 cp $BUILDIR/nginx-conf/nginx.conf etc/nginx/nginx.conf
 cp $BUILDIR/nginx-conf/default etc/nginx/sites-available/default
 
+[ -f /etc/logrotate.d/nginx ] && cp /etc/logrotate.d/nginx etc/logrotate.d/nginx
+[ -f /etc/nginx/nginx.conf ] && cp /etc/nginx/nginx.conf etc/nginx/nginx.conf
+[ -f /etc/nginx/sites-available/default ] && cp /etc/nginx/sites-available/default etc/nginx/sites-available/default
+
 # Build deb
 echo "Building debian package..."
 fpm -s dir -t deb \
   --deb-no-default-config-files \
-  -n openresty \
-  -v ${OPENRESTYVERSION} \
+  -n openresty${DEBVAR} \
+  -v "${OPENRESTYVERSION}" \
   -C $BUILDROOT \
-  -p openresty_VERSION_ARCH.deb \
+  -p openresty${DEBVAR}_VERSION_ARCH.deb \
   --description 'a high performance web server and a reverse proxy server' \
   --url 'http://openresty.org/' \
   --category httpd \
-  --maintainer 'Bryan Tong <bryan@nullivex.com>' \
+  --maintainer 'Jukka Raimovaara <roska@mentalhouse.fi>' \
   --depends wget \
   --depends unzip \
   --depends libncurses5 \
@@ -102,6 +186,7 @@ fpm -s dir -t deb \
   --replaces 'nginx-common' \
   --provides 'nginx-common' \
   --conflicts 'nginx-common' \
+  $RESTYOLD \
   --after-install $BUILDIR/nginx-scripts/postinstall \
   --before-install $BUILDIR/nginx-scripts/preinstall \
   --after-remove $BUILDIR/nginx-scripts/postremove \
@@ -110,7 +195,7 @@ fpm -s dir -t deb \
 
 mkdir $OURDIR/artifacts
 cp $BUILDROOT/*.deb $OURDIR/artifacts
-rm -rf $WORKDIR
+#rm -rf $WORKDIR
 
 echo "$OURDIR/artifacts"
 ls -l $OURDIR/artifacts
