@@ -178,7 +178,7 @@ fpm -s dir -t deb \
   --depends wget \
   --depends unzip \
   --depends libncurses5 \
-  --depends libreadline6 \
+  --depends libreadline7 \
   --deb-build-depends build-essential \
   --replaces 'nginx-full' \
   --provides 'nginx-full' \
