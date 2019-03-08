@@ -124,15 +124,19 @@ make install DESTDIR=$BUILDROOT
 # Compile LuaRocks
 echo "Compiling Luarocks..."
 mkdir -p $BUILDIR/usr/share/nginx
-ln -s $BUILDROOT/usr/share/nginx/luajit $BUILDIR/usr/share/nginx/luajit
+#ln -s $BUILDROOT/usr/share/nginx/luajit $BUILDIR/usr/share/nginx/luajit
 cd $BUILDIR/luarocks-${LUAROCKSVERSION}
 ./configure \
-  --prefix=$BUILDIR/usr/share/nginx/luajit \
-  --with-lua=$BUILDIR/usr/share/nginx/luajit \
+  --prefix=$BUILDROOT/usr/share/nginx/luajit \
+  --with-lua=$BUILDROOT/usr/share/nginx/luajit \
   --with-lua-include=$BUILDROOT/usr/share/nginx/luajit/include/luajit-2.1
 make build
-make install DESTDIR=$BUILDROOT
-rm -rf $BUILDIR/usr/share/nginx
+make install
+
+grep -rl "$BUILDROOT" $BUILDROOT | xargs sed -i s@$BUILDROOT@@g
+
+#make install DESTDIR=$BUILDROOT
+#rm -rf $BUILDIR/usr/share/nginx
 
 mkdir $BUILDIR/nginx-scripts $BUILDIR/nginx-conf
 cp $OURDIR/scripts/* $BUILDIR/nginx-scripts
@@ -193,7 +197,7 @@ fpm -s dir -t deb \
   --before-remove $BUILDIR/nginx-scripts/preremove \
   etc run usr var
 
-mkdir $OURDIR/artifacts
+mkdir -p $OURDIR/artifacts
 cp $BUILDROOT/*.deb $OURDIR/artifacts
 #rm -rf $WORKDIR
 

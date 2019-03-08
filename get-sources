@@ -3,8 +3,10 @@
 echo -n "Getting versions"
 echo -n ".";NGXLUAVERSION=$(curl -s https://github.com/openresty/lua-nginx-module/releases |grep -v rc |grep -m 1 -oP "releases\/tag\/v\K\d+.\d+.\d+")
 echo -n ".";OPENRESTYVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty.spec | grep Version: | awk '{print $2}')
+echo -n ".";OPENRESTYVERSIONGH=$(curl -s https://github.com/openresty/openresty/releases |grep -m 1 -oP "(?<=releases\/tag\/v)\d+.\d+.[.\w\d]*")
 echo -n ".";OPENSSLVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-openssl.spec |grep Version: | awk '{print $2}')
 echo -n ".";OPENSSLPATCH=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-openssl.spec |grep Patch0: | awk '{print $2}')
+echo -n ".";OPENSSLPATCH1=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-openssl.spec |grep Patch1: | awk '{print $2}')
 echo -n ".";PCREVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-pcre.spec |grep Version: | awk '{print $2}')
 echo -n ".";ZLIBVERSION=$(curl -s https://raw.githubusercontent.com/openresty/openresty-packaging/master/rpm/SPECS/openresty-zlib.spec |grep Version: | awk '{print $2}')
 echo -n ".";LUAJITVERSION=$(curl -s https://github.com/LuaJIT/LuaJIT/releases |grep "2.1" |grep -m 1 -oP "releases\/tag\/v\K\d+.\d+.\d+-\w+")
@@ -20,12 +22,27 @@ echo "Openresty Debian Builder 0.1.0"
 echo "--------"
 echo "Nginx Lua Version: ${NGXLUAVERSION}"
 echo "Openresty Version: ${OPENRESTYVERSION}"
+if [[ $OPENRESTYVERSION != $OPENRESTYVERSIONGH ]]; then
+  echo "Openresty GITHUB Version: ${OPENRESTYVERSIONGH}"
+fi
 echo "OpenSSL Version: ${OPENSSLVERSION}"
 echo "PCRE Version: ${PCREVERSION}"
 echo "ZLIB Version: ${ZLIBVERSION}"
 echo "Lua JIT Version: ${LUAJITVERSION}"
 echo "Lua Rocks Version: ${LUAROCKSVERSION}"
 echo "--------"
+
+if [[ $OPENRESTYVERSION != $OPENRESTYVERSIONGH ]]; then
+  echo "Openresty GITHUB in github differs: ${OPENRESTYVERSIONGH} vs ${OPENRESTYVERSION}"
+  read -p "Build github version instead? (y/n)" -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    OPENRESTYVERSION=$OPENRESTYVERSIONGH
+  fi
+fi
+
+
+
 echo "builddir: $BUILDIR"
 ls $BUILDIR
 read -p "Remove downloaded sources? (y/n)" -n 1 -r
@@ -58,6 +75,7 @@ if [ ! -d openssl-${OPENSSLVERSION} ]; then
 
   cd openssl-${OPENSSLVERSION}
   curl ${OPENSSLPATCH} |patch -p1
+  curl ${OPENSSLPATCH1} |patch -p1
   cd ..
 fi
 if [ ! -d pcre-${PCREVERSION} ]; then
